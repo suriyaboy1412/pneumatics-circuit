@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Pneumatic System by Suriya PTC</title>
+<title>Pneumatic Circuit by Suriya PTC</title>
 <style>
 :root{--ink:#0f172a;--bl:#1d4ed8;--bg:#f1f5f9;--pn:#fff;--bd:#cbd5e1;--ac:#0ea5e9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -96,7 +96,7 @@ body.test #who.on{display:block}
 </style></head><body>
 <div id="app">
  <div id="top">
-  <h1>⚙ Pneumatic System by Suriya PTC</h1>
+  <h1>⚙ Pneumatic Circuit by Suriya PTC</h1>
   <span class="seg"><button class="btn" id="mE">✏ แก้ไข</button><button class="btn on" id="mT">▶ ทดลอง</button></span>
   <span class="seg" id="undoBox"><button class="btn" id="undo">↶<span class="lb"> ย้อนกลับ</span></button><button class="btn" id="redo" title="ทำซ้ำ">↷</button></span>
   <button class="btn" id="tidy" title="จัดเส้นสายลมให้เรียบร้อยอัตโนมัติ"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px"><path d="M3 19h4v-6h5V7h4"/><path d="M19 2.5l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9z"/></svg><span class="lb"> จัดเส้นอัตโนมัติ</span></button>
@@ -124,7 +124,7 @@ body.test #who.on{display:block}
 <div id="ghost"></div>
 <div id="modal"><div id="mbody"></div></div>
 <div id="login"><form id="lcard" autocomplete="off">
- <h2>⚙ Pneumatic System by Suriya PTC</h2>
+ <h2>⚙ Pneumatic Circuit by Suriya PTC</h2>
  <div class="sub">เข้าสู่ระบบเพื่อใช้งานห้องทดลอง<br>วิชา งานนิวเมติกส์และไฮดรอลิกส์เบื้องต้น 20100-1007</div>
  <label for="lid">รหัสนักศึกษา (11 หลัก)</label><input id="lid" type="tel" inputmode="numeric" maxlength="11" placeholder="เช่น 67201010001">
  <label for="lname">ชื่อ-นามสกุล</label><input id="lname" type="text" placeholder="ชื่อ นามสกุล">
@@ -1029,7 +1029,7 @@ const PRE=[
  obj:'เปรียบเทียบโครงสร้างและการทำงานของกระบอกสูบทางเดียว (สปริงกลับ) กับสองทาง',
  st:['กด S1: ลมดัน A1 ยื่นออก ปล่อยแล้วสปริงดันกลับ','กด S2: A2 ยื่นออกด้วยลมที่พอร์ต A ปล่อยแล้วลมที่พอร์ต B ดันกลับ','เปรียบเทียบจำนวนพอร์ตและจำนวนช่องลมของกระบอกสูบ 2 แบบ'],
  q:['ข้อดีและข้อจำกัดของกระบอกสูบทางเดียวคืออะไร','เมื่อใดควรเลือกใช้กระบอกสูบสองทาง']}];
-const GEN='<b>Pneumatic System by Suriya PTC</b><p>เลือกตัวอย่างวงจรจากเมนูด้านบนเพื่อดูใบงาน หรือสร้างวงจรเองจากชิ้นส่วนด้านซ้าย</p><h4>รหัสพอร์ตตามมาตรฐาน ISO</h4><ul><li>1 = ลมเข้า (P)</li><li>2, 4 = ช่องใช้งาน (A, B)</li><li>3, 5 = ช่องระบายลม (R, S)</li><li>12, 14 = พอร์ตลมสัญญาณ (1→2, 1→4)</li></ul>';
+const GEN='<b>Pneumatic Circuit by Suriya PTC</b><p>เลือกตัวอย่างวงจรจากเมนูด้านบนเพื่อดูใบงาน หรือสร้างวงจรเองจากชิ้นส่วนด้านซ้าย</p><h4>รหัสพอร์ตตามมาตรฐาน ISO</h4><ul><li>1 = ลมเข้า (P)</li><li>2, 4 = ช่องใช้งาน (A, B)</li><li>3, 5 = ช่องระบายลม (R, S)</li><li>12, 14 = พอร์ตลมสัญญาณ (1→2, 1→4)</li></ul>';
 let curPre=-1;
 function loadPre(i){
  comps=[];wires=[];sel=null;pend=null;for(const k in PL)delete PL[k];for(const k in cnt)delete cnt[k];held.clear();seq=0;netsDirty=true;
