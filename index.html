@@ -167,7 +167,7 @@ const DEFS={
  motor:{pre:'AM',props:()=>({dir2:false,mt:'vane',rpm:1}),bb:()=>[110,124]}
 };
 const isSup=c=>c.type=='supply'||c.type=='comp';
-function vg(c){const k=c.props.kind=='5/2'?5:3,Sz=k==3?44:54,AW=56,SP=52;return{k,S:Sz,AW,SP,W:AW+2*Sz+SP,h:40+Sz+30,xr:AW+Sz,T:40}}
+function vg(c){const k=c.props.kind=='5/2'?5:c.props.kind=='4/2'?4:3,Sz=k==3?44:54,AW=56,SP=52;return{k,S:Sz,AW,SP,W:AW+2*Sz+SP,h:40+Sz+30,xr:AW+Sz,T:40}}
 function portsOf(c){
  const o={},add=(n,x,y,dx,dy,l)=>o[n]={x,y,dx,dy,l:l==null?n:l};
  switch(c.type){
@@ -193,9 +193,10 @@ function portsOf(c){
  case'motor':if(c.props.dir2){add('A',28,104,0,1,'A');add('B',82,104,0,1,'B')}else add('A',55,104,0,1,'');break;
  case'valve':{const g=vg(c),p=c.props,T=40,x=g.xr,Z=g.S,top=T-18,bot=T+Z+18;
   if(g.k==3){add('2',x+R(Z*.5),top,0,-1);add('1',x+R(Z*.25),bot,0,1);add('3',x+R(Z*.75),bot,0,1)}
+  else if(g.k==4){add('4',x+R(Z*.25),top,0,-1);add('2',x+R(Z*.75),top,0,-1);add('1',x+R(Z*.25),bot,0,1);add('3',x+R(Z*.75),bot,0,1)}
   else{add('4',x+R(Z*.25),top,0,-1);add('2',x+R(Z*.75),top,0,-1);add('5',x+R(Z/6),bot,0,1);add('1',x+R(Z/2),bot,0,1);add('3',x+R(Z*5/6),bot,0,1)}
-  if(p.L=='pilot')add('zl',0,T+Z/2,-1,0,g.k==5?'14':(p.no?'10':'12'));
-  if(g.k==5&&p.Rt=='pilot')add('zr',g.W,T+Z/2,1,0,'12');
+  if(p.L=='pilot')add('zl',0,T+Z/2,-1,0,g.k>=4?'14':(p.no?'10':'12'));
+  if(g.k>=4&&p.Rt=='pilot')add('zr',g.W,T+Z/2,1,0,'12');
   break}
  }
  return o}
@@ -240,6 +241,7 @@ function linksFor(c){
  case'and':o.push({t:'and',a:k('i1'),b:k('i2'),o:k('out')});break;
  case'valve':{const g=vg(c),s=c.s;
   if(g.k==3){const op12=c.props.no?!s:!!s;o.push({t:'bi',a:k(op12?'1':'3'),b:k('2')})}
+  else if(g.k==4){if(s)o.push({t:'bi',a:k('1'),b:k('4')},{t:'bi',a:k('2'),b:k('3')});else o.push({t:'bi',a:k('1'),b:k('2')},{t:'bi',a:k('4'),b:k('3')})}
   else if(s){o.push({t:'bi',a:k('1'),b:k('4')},{t:'bi',a:k('2'),b:k('3')})}
   else o.push({t:'bi',a:k('1'),b:k('2')},{t:'bi',a:k('4'),b:k('5')});
   break}}
@@ -248,9 +250,9 @@ function act(c,side){
  const p=c.props,t=side=='L'?p.L:p.Rt;
  if(t=='spring')return false;
  if(held.has(c.id+':'+side))return true;
- if(t=='lever'&&c.lat[side])return true;
+ if((t=='lever'||t=='plock')&&c.lat[side])return true;
  if(t=='pilot'){const q=PL[c.id+':'+(side=='L'?'zl':'zr')];return!!q&&q.lvl>.5}
- if(t=='roller'&&p.att){const cy=comps.find(x=>x.id==p.att);if(cy)return p.at=='start'?cy.pos<.03:cy.pos>.97}
+ if((t=='roller'||t=='roller1')&&p.att){const cy=comps.find(x=>x.id==p.att);if(cy){const at=p.at=='start'?cy.pos<.03:cy.pos>.97;if(t=='roller1')return at&&(p.at=='start'?(cy.dir||0)<=0:(cy.dir||0)>=0);return at}}
  return false}
 function updValves(){
  comps.forEach(c=>{if(c.type=='ball'){c.s=c.props.open?1:0;return}if(c.type!='valve')return;const g=vg(c),a=act(c,'L');
@@ -411,7 +413,7 @@ function dCyl(g,c,s){const p=c.props,pos=c.pos,px=24+pos*118,tip=px+4+146,A=lv(c
   S(g,'rect',{x:tip,y:30,width:16,height:20,rx:3,fill:'url(#gSteel)',stroke:'#334155'});S(g,'circle',{cx:tip+8,cy:40,r:4,fill:'#475569'});
   const fit=(x,q)=>{S(g,'rect',{x:x-4,y:62,width:8,height:18,fill:'#334155'});hex(g,x-6,58,12,8);S(g,'circle',{cx:x,cy:78,r:3,fill:pcol(q)})};fit(36,A);if(p.dbl)fit(134,B);
   txt(g,26,14,'ภาพตัดภายใน',9,'#64748b')}
- comps.forEach(v=>{if(v.type=='valve'&&v.props.att==c.id&&v.props.L=='roller'){const x=v.props.at=='start'?26:144;S(g,'path',{d:`M${x-5} 8L${x+5} 8L${x} 18Z`,fill:'#f97316'});txt(g,x,6,v.props.name,10,'#c2410c',700,'middle')}});
+ comps.forEach(v=>{if(v.type=='valve'&&v.props.att==c.id&&(v.props.L=='roller'||v.props.L=='roller1')){const x=v.props.at=='start'?26:144;S(g,'path',{d:`M${x-5} 8L${x+5} 8L${x} 18Z`,fill:'#f97316'});txt(g,x,6,v.props.name,10,'#c2410c',700,'middle')}});
  txt(g,170,78,p.name,13,INK,700);txt(g,170,94,(p.dbl?'สองทาง':'ทางเดียว')+' · '+R(pos*100)+'%',11,'#475569')}
 /* valve */
 function dValve(g,c,s){const G=vg(c),p=c.props,Z=G.S,T=40,mid=T+Z/2,tx=G.AW+c.slide*Z,k=G.k,ps=portsOf(c);
@@ -419,45 +421,51 @@ function dValve(g,c,s){const G=vg(c),p=c.props,Z=G.S,T=40,mid=T+Z/2,tx=G.AW+c.sl
  const pn=Object.keys(ps).filter(n=>n[0]!='z');
  if(s){
   pn.forEach(n=>{const q=ps[n],top=q.dy<0;line(g,q.x,top?T:T+Z,q.x,q.y,pcol(lv(c,n)),2)});
-  const L={3:p.no?'o23':'o12',5:'s14'}[k],Rr={3:p.no?'o12':'o23',5:'s12'}[k];
+  const L={3:p.no?'o23':'o12',4:'t14',5:'s14'}[k],Rr={3:p.no?'o12':'o23',4:'t12',5:'s12'}[k];
   [[tx,L,c.s==1],[tx+Z,Rr,c.s==0]].forEach(([x,spec,on])=>{
    S(g,'rect',{x,y:T,width:Z,height:Z,fill:on?'#e0f2fe':'#fff',stroke:INK,'stroke-width':2});
    const arr=on?null:'#94a3b8',F=(fx,fy)=>[x+fx*Z,T+fy*Z],cl=(fx)=>{const[a,b]=F(fx,1);line(g,a,b,a,b-9,arr||INK,2);line(g,a-5,b-9,a+5,b-9,arr||INK,2)};
    const ar=(f1,f2,pa,pb)=>{const a=F(...f1),b=F(...f2),col=arr||((lv(c,pa).d>.5||lv(c,pb).d>.5)?BL:INK);arrow(g,a[0],a[1],b[0],b[1],col)};
    if(spec=='o12'){ar([.25,1],[.5,0],'1','2');cl(.75)}
    if(spec=='o23'){ar([.5,0],[.75,1],'2','3');cl(.25)}
+   if(spec=='t14'){ar([.25,1],[.25,0],'1','4');ar([.75,0],[.75,1],'2','3')}
+   if(spec=='t12'){ar([.25,1],[.75,0],'1','2');ar([.25,0],[.75,1],'4','3')}
    if(spec=='s14'){ar([.5,1],[.25,0],'1','4');ar([.75,0],[5/6,1],'2','3')}
    if(spec=='s12'){ar([.5,1],[.75,0],'1','2');ar([.25,0],[1/6,1],'4','5')}});
   const gx=tx,gr=tx+2*Z;
   if(p.L=='push'){S(g,'rect',{x:gx-24,y:mid-10,width:6,height:20,fill:aL?'#dc2626':'#fff',stroke:INK,'stroke-width':2});line(g,gx-18,mid,gx,mid)}
   if(p.L=='lever'){line(g,gx,mid,gx-14,mid);line(g,gx-14,mid,gx-26,mid-12);S(g,'circle',{cx:gx-26,cy:mid-12,r:3.5,fill:aL?BL:'#fff',stroke:INK,'stroke-width':2})}
-  if(p.L=='roller'){S(g,'circle',{cx:gx-14,cy:mid,r:7,fill:aL?'#fb923c':'#fff',stroke:INK,'stroke-width':2});line(g,gx-7,mid,gx,mid)}
+  if(p.L=='roller'||p.L=='roller1'){S(g,'circle',{cx:gx-14,cy:mid,r:7,fill:aL?'#fb923c':'#fff',stroke:INK,'stroke-width':2});line(g,gx-7,mid,gx,mid);if(p.L=='roller1'){line(g,gx-24,mid+13,gx-4,mid+13,INK,1.5);S(g,'path',{d:`M${gx-4} ${mid+13}l-6 -3.5v7z`,fill:INK})}}
+  if(p.L=='plock'){S(g,'rect',{x:gx-24,y:mid-10,width:6,height:20,fill:aL?'#dc2626':'#fff',stroke:INK,'stroke-width':2});line(g,gx-18,mid,gx,mid);line(g,gx-27,mid-14,gx-27,mid-5,INK,1.6);line(g,gx-27,mid-14,gx-14,mid-14,INK,1.6)}
   if(p.L=='pilot'){const col=pcol(lv(c,'zl'));line(g,0,mid,gx,mid,col,2,{'stroke-dasharray':'5 3'});S(g,'path',{d:`M${gx-14} ${mid-5}L${gx-6} ${mid}L${gx-14} ${mid+5}Z`,fill:col})}
   if(p.L!='pilot'||1)btnRect(g,c.id+':L',gx-32,mid-16,32,32);
   if(Rt=='spring'){zig(g,gr,G.W,mid);line(g,G.W,mid-12,G.W,mid+12,INK,3)}
   if(Rt=='pilot'){const col=pcol(lv(c,'zr'));line(g,gr,mid,G.W,mid,col,2,{'stroke-dasharray':'5 3'});S(g,'path',{d:`M${gr+14} ${mid-5}L${gr+6} ${mid}L${gr+14} ${mid+5}Z`,fill:col})}
+  if(Rt=='plock'){line(g,gr,mid,gr+18,mid);S(g,'rect',{x:gr+18,y:mid-10,width:6,height:20,fill:aR?'#dc2626':'#fff',stroke:INK,'stroke-width':2});line(g,gr+27,mid-14,gr+14,mid-14,INK,1.6)}
   if(Rt=='push'){line(g,gr,mid,gr+18,mid);S(g,'rect',{x:gr+18,y:mid-10,width:6,height:20,fill:aR?'#dc2626':'#fff',stroke:INK,'stroke-width':2})}
   if(Rt=='lever'){line(g,gr,mid,gr+14,mid);line(g,gr+14,mid,gr+26,mid-12);S(g,'circle',{cx:gr+26,cy:mid-12,r:3.5,fill:aR?BL:'#fff',stroke:INK,'stroke-width':2})}
-  if(Rt=='push'||Rt=='lever')btnRect(g,c.id+':R',gr,mid-16,34,32);
+  if(Rt=='push'||Rt=='lever'||Rt=='plock')btnRect(g,c.id+':R',gr,mid-16,34,32);
  }else{
   const bx=G.xr-8,bw=Z+16;
   pn.forEach(n=>{const q=ps[n],top=q.dy<0,y0=top?T:T+Z;S(g,'rect',{x:q.x-3,y:Math.min(y0,q.y),width:6,height:Math.abs(q.y-y0),fill:'#334155'});hex(g,q.x-6,top?T-10:T+Z,12,10);S(g,'circle',{cx:q.x,cy:q.y,r:3.5,fill:pcol(lv(c,n))})});
   S(g,'rect',{x:bx,y:T,width:bw,height:Z,rx:6,fill:'url(#gSteel)',stroke:'#334155','stroke-width':1.5});
-  S(g,'circle',{cx:bx+bw/2,cy:T+Z/2,r:5,fill:c.s?'#22c55e':'#94a3b8',stroke:'#334155'});txt(g,bx+bw/2,T+Z/2+16,k==5?(c.s?'14':'12'):(c.s?'ON':'OFF'),10,INK,700,'middle');
+  S(g,'circle',{cx:bx+bw/2,cy:T+Z/2,r:5,fill:c.s?'#22c55e':'#94a3b8',stroke:'#334155'});txt(g,bx+bw/2,T+Z/2+16,k>=4?(c.s?'14':'12'):(c.s?'ON':'OFF'),10,INK,700,'middle');
   const lx=bx-30,cap=(x,col)=>S(g,'rect',{x,y:T+6,width:30,height:Z-12,rx:4,fill:col,stroke:'#334155'});
   const off=aL?5:0;
   if(p.L=='push'){cap(lx,'url(#gDark)');S(g,'rect',{x:lx-8+off,y:mid-5,width:10,height:10,fill:'#475569'});S(g,'circle',{cx:lx-12+off,cy:mid,r:10,fill:'url(#gRed)',stroke:'#7f1d1d'})}
   if(p.L=='lever'){cap(lx,'url(#gDark)');line(g,lx+4,mid,lx-12,mid-(aL?4:16),'#475569',5);S(g,'circle',{cx:lx-12,cy:mid-(aL?4:16),r:5,fill:aL?'#3b82f6':'#e2e8f0',stroke:'#334155'})}
-  if(p.L=='roller'){cap(lx,'url(#gDark)');line(g,lx+4,mid,lx-8+off,mid,'#475569',5);S(g,'circle',{cx:lx-14+off,cy:mid,r:10,fill:aL?'#fb923c':'#e2e8f0',stroke:'#334155','stroke-width':2});S(g,'circle',{cx:lx-14+off,cy:mid,r:3,fill:'#334155'})}
+  if(p.L=='plock'){cap(lx,'url(#gDark)');S(g,'rect',{x:lx-8+off,y:mid-5,width:10,height:10,fill:'#475569'});S(g,'circle',{cx:lx-12+off,cy:mid,r:10,fill:'url(#gRed)',stroke:'#7f1d1d'});S(g,'circle',{cx:lx-12+off,cy:mid,r:13,fill:'none',stroke:'#eab308','stroke-width':2.5,'stroke-dasharray':'4 3'})}
+  if(p.L=='roller'||p.L=='roller1'){cap(lx,'url(#gDark)');line(g,lx+4,mid,lx-8+off,mid,'#475569',5);S(g,'circle',{cx:lx-14+off,cy:mid,r:10,fill:aL?'#fb923c':'#e2e8f0',stroke:'#334155','stroke-width':2});S(g,'circle',{cx:lx-14+off,cy:mid,r:3,fill:'#334155'})}
   if(p.L=='pilot'){cap(lx,'url(#gBlue)');line(g,lx,mid,0,mid,'#334155',6);hex(g,lx-10,mid-5,10,10);S(g,'circle',{cx:0,cy:mid,r:3.5,fill:pcol(lv(c,'zl'))})}
   const rx=bx+bw;
   if(Rt=='spring'){cap(rx,'#475569');for(let i=0;i<5;i++)line(g,rx+6+i*5,T+10,rx+6+i*5,T+Z-10,'#94a3b8',1.5)}
   if(Rt=='pilot'){cap(rx,'url(#gBlue)');line(g,rx+30,mid,G.W,mid,'#334155',6);S(g,'circle',{cx:G.W,cy:mid,r:3.5,fill:pcol(lv(c,'zr'))})}
+  if(Rt=='plock'){cap(rx,'url(#gDark)');S(g,'circle',{cx:rx+40-(aR?5:0),cy:mid,r:10,fill:'url(#gRed)',stroke:'#7f1d1d'});S(g,'circle',{cx:rx+40-(aR?5:0),cy:mid,r:13,fill:'none',stroke:'#eab308','stroke-width':2.5,'stroke-dasharray':'4 3'})}
   if(Rt=='push'){cap(rx,'url(#gDark)');S(g,'circle',{cx:rx+40-(aR?5:0),cy:mid,r:10,fill:'url(#gRed)',stroke:'#7f1d1d'})}
   if(Rt=='lever'){cap(rx,'url(#gDark)');line(g,rx+26,mid,rx+42,mid-(aR?4:16),'#475569',5);S(g,'circle',{cx:rx+42,cy:mid-(aR?4:16),r:5,fill:aR?'#3b82f6':'#e2e8f0',stroke:'#334155'})}
-  if(p.L=='push'||p.L=='lever'||p.L=='roller')btnRect(g,c.id+':L',lx-26,mid-18,36,36);
-  if(Rt=='push'||Rt=='lever')btnRect(g,c.id+':R',rx+22,mid-18,36,36)}
- const desc=k+(k==3?(p.no?' NO':' NC'):'')+' · '+({push:'ปุ่มกด',lever:'คันโยก',roller:'ลูกกลิ้ง',pilot:'ลม'}[p.L])+(k==5?'/'+({spring:'สปริง',pilot:'ลม',push:'ปุ่มกด',lever:'คันโยก'}[Rt]):'/สปริง');
+  if(p.L=='push'||p.L=='lever'||p.L=='roller'||p.L=='roller1'||p.L=='plock')btnRect(g,c.id+':L',lx-26,mid-18,36,36);
+  if(Rt=='push'||Rt=='lever'||Rt=='plock')btnRect(g,c.id+':R',rx+22,mid-18,36,36)}
+ const desc=(k>=4?k+'/2':k)+(k==3?(p.no?' NO':' NC'):'')+' · '+({push:'ปุ่มกด',lever:'คันโยก',roller:'ลูกกลิ้ง',roller1:'ลูกกลิ้งทางเดียว',plock:'ปุ่มล็อก',pilot:'ลม'}[p.L])+(k>=4?'/'+({spring:'สปริง',pilot:'ลม',push:'ปุ่มกด',lever:'คันโยก',plock:'ปุ่มล็อก'}[Rt]):'/สปริง');
  txt(g,4,12,p.name,13,INK,700);txt(g,4,26,desc,10.5,'#475569')}
 /* throttle */
 function dThr(g,c,s){const p=c.props,rot=p.rot,g2=S(g,'g',rot?{transform:'translate(76,0) rotate(90)'}:null),q=lv(c,'a'),col=pcol(q);
@@ -622,7 +630,7 @@ function dRot(g,c,s){const p=c.props,pos=c.pos,px=24+pos*118,A=lv(c,'A'),B=lv(c,
   S(g,'rect',{x:64,y:20,width:42,height:14,rx:3,fill:'url(#gSteel)',stroke:'#334155'});S(g,'circle',{cx:85,cy:14,r:15,fill:'url(#gChrome)',stroke:'#334155'});S(g,'circle',{cx:85,cy:14,r:7,fill:'#475569'});
   line(g,85,14,85+13*Math.cos(ang),14+13*Math.sin(ang),'#dc2626',3);
   const fit=(x,q)=>{S(g,'rect',{x:x-4,y:72,width:8,height:10,fill:'#334155'});hex(g,x-6,68,12,8);S(g,'circle',{cx:x,cy:84,r:3,fill:pcol(q)})};fit(36,A);fit(134,B);txt(g,26,8,'ภาพตัดภายใน',9,'#64748b')}
- comps.forEach(v=>{if(v.type=='valve'&&v.props.att==c.id&&v.props.L=='roller'){const x=v.props.at=='start'?26:144;S(g,'path',{d:`M${x-5} 18L${x+5} 18L${x} 28Z`,fill:'#f97316'});txt(g,x,16,v.props.name,10,'#c2410c',700,'middle')}});
+ comps.forEach(v=>{if(v.type=='valve'&&v.props.att==c.id&&(v.props.L=='roller'||v.props.L=='roller1')){const x=v.props.at=='start'?26:144;S(g,'path',{d:`M${x-5} 18L${x+5} 18L${x} 28Z`,fill:'#f97316'});txt(g,x,16,v.props.name,10,'#c2410c',700,'middle')}});
  txt(g,170,70,p.name,13,INK,700);txt(g,170,86,'กระบอกสูบโรตารี · '+R(pos*180)+'°',11,'#475569')}
 Object.assign(DRAW,{comp:dComp,tank:dTank,filter:dFil,wsep:dWs,lub:dLub,ball:dBall,motor:dMotor});
 Object.assign(NAMEPOS,{comp:[2,104],tank:null,filter:null,wsep:null,lub:null,ball:null,motor:null});
@@ -636,6 +644,7 @@ const INFO={
  reg:'ตัวปรับความดัน (Regulator) รักษาความดันขาออกให้คงที่ ประมาณ 4–6 bar ลมออกไม่เกินค่าที่ตั้ง',
  frl:'ชุดปรับปรุงคุณภาพลมอัด (Air Service Unit) = ตัวกรอง + ตัวปรับความดัน + ตัวผสมน้ำมันหล่อลื่น',
  lub:'ตัวผสมน้ำมันหล่อลื่น (Lubricator) ลมไหลผ่านจะดูดน้ำมันขึ้นมาเป็นฝอยผสมกับลม เพื่อหล่อลื่นอุปกรณ์ที่เคลื่อนที่ ต้องวางหลังตัวปรับความดัน',
+ valve:'วาล์วควบคุมทิศทาง: 3/2 (ปิด-เปิดลม), 4/2 และ 5/2 (กลับทิศกระบอกสูบสองทาง) ตัวสั่งงานมีปุ่มกด ปุ่มมีตัวล็อก คันโยก ลูกกลิ้ง (ทางเดียว = ลิ้นลมช่วยกลับ) และลมอัด (Pilot)',
  gauge:'เกจวัดความดัน (Pressure Gauge) ท่อสปริงยืดตัวเมื่อลมเข้า ทำให้เข็มชี้ค่าความดัน',
  ball:'วาล์วปิด-เปิดลม (Shut-off valve) ตัดลมเข้าระบบก่อนซ่อมบำรุง แตะที่คันโยกเพื่อสลับ เปิด/ปิด',
  cyl:'กระบอกสูบ: แบบทางเดียวใช้ลมดันออกและสปริงดึงกลับ (งานกด งานอัด จับชิ้นงาน) แบบสองทางใช้ลมทั้งยื่นและหด แรงเท่ากันตามพื้นที่หน้าลูกสูบ',
@@ -702,7 +711,7 @@ svg.addEventListener('pointerdown',e=>{
   if(side=='B'){if(ui=='edit'&&0)return;c.props.open=!c.props.open;sValve();return}
   if(side=='D'){c.props.water=0;c.dr=false;sClick();toast(c.props.name+': ปล่อยน้ำทิ้งแล้ว');return}
   const ty=side=='L'?c.props.L:c.props.Rt;sClick();
-  if(ty=='lever')c.lat[side]=!c.lat[side];else{held.add(id+':'+side);heldBy.set(e.pointerId,id+':'+side)}}
+  if(ty=='lever'||ty=='plock')c.lat[side]=!c.lat[side];else{held.add(id+':'+side);heldBy.set(e.pointerId,id+':'+side)}}
  else if(ce&&ui=='edit'){const c=comps.find(x=>x.id==ce.dataset.comp);sel='c:'+c.id;dragSnap=snap();mode='drag';drag={c,dx:pt.x-c.x,dy:pt.y-c.y};pend=null;refreshProps()}
  else if(we&&ui=='edit'){sel='w:'+we.dataset.wire;mode=null;pend=null;refreshProps()}
  else{sel=null;pend=null;mode='pan';pan={x:e.clientX,y:e.clientY,vx:vw.x,vy:vw.y};refreshProps()}});
@@ -741,7 +750,7 @@ let palCat=0,palSel=null;
 const PAL=[['💨 ลม',[['แหล่งจ่ายลมอัด','supply'],['ชุด FRL (กรอง-ปรับ-หล่อลื่น)','frl'],['วาล์วลดความดัน (Regulator)','reg',{set:4}],['มาตรวัดความดัน','gauge']]],
  ['🏭 ระบบผลิตลม',[['เครื่องอัดลมแบบลูกสูบชั้นเดียว','comp',{ct:'piston'}],['เครื่องอัดลมแบบลูกสูบสองชั้น','comp',{ct:'piston2'}],['เครื่องอัดลมแบบไดอะแฟรม','comp',{ct:'diaph'}],['เครื่องอัดลมแบบใบพัดเลื่อน','comp',{ct:'vane'}],['เครื่องอัดลมแบบสกรู','comp',{ct:'screw'}],['ถังเก็บลมอัด (Air Receiver)','tank'],['วาล์วปิด-เปิดลม (Shut-off)','ball'],['ตัวกรองลม (Air Filter)','filter'],['ตัวดักน้ำ (ปล่อยมือ)','wsep'],['ตัวดักน้ำ (อัตโนมัติ)','wsep',{auto:true}],['ตัวปรับความดัน (Regulator)','reg',{set:4}],['ตัวผสมน้ำมันหล่อลื่น (Lubricator)','lub'],['มาตรวัดความดัน','gauge']]],
  ['🔩 กระบอกสูบ',[['กระบอกสูบทางเดียว (สปริงกลับ)','cyl',{dbl:false}],['กระบอกสูบสองทาง','cyl',{dbl:true}],['กระบอกสูบโรตารี (แร็ค-พิเนียน)','cyl',{dbl:true,rot:true}],['มอเตอร์ลมใบพัด ทิศทางเดียว','motor',{mt:'vane'}],['มอเตอร์ลมใบพัด 2 ทิศทาง','motor',{mt:'vane',dir2:true}],['มอเตอร์ลมลูกสูบ ทิศทางเดียว','motor',{mt:'piston'}],['มอเตอร์ลมลูกสูบ 2 ทิศทาง','motor',{mt:'piston',dir2:true}]]],
- ['🎛 วาล์ว',[['3/2 ปุ่มกด NC','valve',{L:'push'}],['3/2 คันโยก NC','valve',{L:'lever'}],['3/2 ลูกกลิ้ง NC (ลิมิต)','valve',{L:'roller'}],['3/2 ควบคุมด้วยลม NC','valve',{L:'pilot'}],['3/2 ปุ่มกด NO','valve',{L:'push',no:true}],['5/2 ปุ่มกด/สปริง','valve',{kind:'5/2',L:'push',Rt:'spring'}],['5/2 ลูกกลิ้ง/สปริง','valve',{kind:'5/2',L:'roller',Rt:'spring'}],['5/2 ลม/สปริง','valve',{kind:'5/2',L:'pilot',Rt:'spring'}],['5/2 ลม 2 ด้าน (จำสถานะ)','valve',{kind:'5/2',L:'pilot',Rt:'pilot'}],['5/2 ปุ่มกด 2 ด้าน','valve',{kind:'5/2',L:'push',Rt:'push'}],['5/2 คันโยก 2 ด้าน','valve',{kind:'5/2',L:'lever',Rt:'lever'}]]],
+ ['🎛 วาล์ว',[['3/2 ปุ่มกด NC','valve',{L:'push'}],['3/2 คันโยก NC','valve',{L:'lever'}],['3/2 ลูกกลิ้ง NC (ลิมิต)','valve',{L:'roller'}],['3/2 ควบคุมด้วยลม NC','valve',{L:'pilot'}],['3/2 ปุ่มกด NO','valve',{L:'push',no:true}],['5/2 ปุ่มกด/สปริง','valve',{kind:'5/2',L:'push',Rt:'spring'}],['5/2 ลูกกลิ้ง/สปริง','valve',{kind:'5/2',L:'roller',Rt:'spring'}],['5/2 ลม/สปริง','valve',{kind:'5/2',L:'pilot',Rt:'spring'}],['5/2 ลม 2 ด้าน (จำสถานะ)','valve',{kind:'5/2',L:'pilot',Rt:'pilot'}],['5/2 ปุ่มกด 2 ด้าน','valve',{kind:'5/2',L:'push',Rt:'push'}],['5/2 คันโยก 2 ด้าน','valve',{kind:'5/2',L:'lever',Rt:'lever'}],['3/2 ปุ่มกดมีตัวล็อก NC','valve',{L:'plock'}],['3/2 ลูกกลิ้งทางเดียว NC (ลิ้นลมช่วยกลับ)','valve',{L:'roller1'}],['4/2 ปุ่มกด/สปริง','valve',{kind:'4/2',L:'push',Rt:'spring'}],['4/2 ลม/สปริง','valve',{kind:'4/2',L:'pilot',Rt:'spring'}],['4/2 ลม 2 ด้าน (จำสถานะ)','valve',{kind:'4/2',L:'pilot',Rt:'pilot'}],['4/2 ปุ่มกด 2 ด้าน','valve',{kind:'4/2',L:'push',Rt:'push'}],['5/2 ปุ่มกดมีตัวล็อก/สปริง','valve',{kind:'5/2',L:'plock',Rt:'spring'}],['5/2 ลูกกลิ้งทางเดียว/ลม','valve',{kind:'5/2',L:'roller1',Rt:'pilot'}]]],
  ['🔗 ข้อต่อ',[['ข้อต่อตรง','union'],['ข้อต่อข้อศอก 90°','elbow'],['ข้อต่อ T (3 ทาง)','tee'],['ข้อต่อ 4 ทาง (กากบาท)','cross'],['ปลั๊กอุด','plug'],['ตัวกระจายลม (Manifold)','manifold'],['ตัวเก็บเสียง (Silencer)','silencer']]],
  ['🌀 ควบคุมการไหล',[['วาล์วปรับความเร็ว (GRU)','throttle'],['ลิ้นกันกลับ (Check)','check'],['ลิ้นระบายเร็ว (Quick Exhaust)','qex'],['วาล์ว OR (Shuttle)','or'],['วาล์ว AND (สองความดัน)','and']]]];
 function thumb(type,props){const c={id:'tmp',type,x:0,y:0,props:Object.assign(DEFS[type].props(),props||{},{name:''}),pos:0,slide:0,s:0,lat:{}};
@@ -800,18 +809,18 @@ function refreshProps(){const P=$('tpP');P.textContent='';
  if(c.type=='throttle'){fld('เปิดช่อง (รูหรี่)',inp('range',p.set,v=>{p.set=+v},{min:.05,max:1,step:.05}));fld('สลับทิศไหลอิสระ',inp('checkbox',p.flip,v=>{p.flip=v}));fld('วางแนวตั้ง',inp('checkbox',p.rot,v=>{p.rot=v}));
   add('<small>ต่อวาล์วปรับความเร็วเข้ากับพอร์ตกระบอกสูบโดยตรง · ค่าเริ่มต้นคือควบคุมลมเข้า (Meter-in) ติ๊ก “สลับทิศ” เพื่อควบคุมลมออก (Meter-out)</small>')}
  if(c.type=='valve'){const k=vg(c).k;
-  fld('ชนิด',selb([['3/2','3/2'],['5/2','5/2']],p.kind,v=>{p.kind=v;if(v=='5/2'&&p.L=='roller'){}pruneWires(c);refreshProps()}));
+  fld('ชนิด',selb([['3/2','3/2'],['4/2','4/2'],['5/2','5/2']],p.kind,v=>{p.kind=v;if(v=='5/2'&&p.L=='roller'){}pruneWires(c);refreshProps()}));
   if(k==3)fld('ปกติ',selb([['nc','ปิด (NC)'],['no','เปิด (NO)']],p.no?'no':'nc',v=>{p.no=v=='no';refreshProps()}));
-  fld(k==5?'ด้านซ้าย (14)':'ตัวสั่งงาน',selb([['push','ปุ่มกด (ปล่อยคืน)'],['lever','คันโยก (ค้างสถานะ)'],['roller','ลูกกลิ้ง/ลิมิต'],['pilot','ควบคุมด้วยลม']],p.L,v=>{p.L=v;pruneWires(c);refreshProps()}));
-  if(k==5)fld('ด้านขวา (12)',selb([['spring','สปริง'],['pilot','ควบคุมด้วยลม'],['push','ปุ่มกด'],['lever','คันโยก']],p.Rt,v=>{p.Rt=v;pruneWires(c);refreshProps()}));
-  if(p.L=='roller'){const cy=comps.filter(x=>x.type=='cyl');fld('ชนกับกระบอก',selb([['','— ไม่ระบุ (กดเอง) —'],...cy.map(x=>[x.id,x.props.name])],p.att,v=>{p.att=v}));fld('ที่ตำแหน่ง',selb([['start','ต้นช่วงชัก (ถอยสุด)'],['end','ปลายช่วงชัก (ยื่นสุด)']],p.at,v=>{p.at=v}))}}
+  fld(k>=4?'ด้านซ้าย (14)':'ตัวสั่งงาน',selb([['push','ปุ่มกด (ปล่อยคืน)'],['lever','คันโยก (ค้างสถานะ)'],['plock','ปุ่มกดมีตัวล็อกตำแหน่ง'],['roller','ลูกกลิ้ง/ลิมิต'],['roller1','ลูกกลิ้งทางเดียว (ลิ้นลมช่วยกลับ)'],['pilot','ควบคุมด้วยลม']],p.L,v=>{p.L=v;pruneWires(c);refreshProps()}));
+  if(k>=4)fld('ด้านขวา (12)',selb([['spring','สปริง'],['pilot','ควบคุมด้วยลม'],['push','ปุ่มกด'],['plock','ปุ่มกดมีตัวล็อก'],['lever','คันโยก']],p.Rt,v=>{p.Rt=v;pruneWires(c);refreshProps()}));
+  if(p.L=='roller'||p.L=='roller1'){const cy=comps.filter(x=>x.type=='cyl');fld('ชนกับกระบอก',selb([['','— ไม่ระบุ (กดเอง) —'],...cy.map(x=>[x.id,x.props.name])],p.att,v=>{p.att=v}));fld('ที่ตำแหน่ง',selb([['start','ต้นช่วงชัก (ถอยสุด)'],['end','ปลายช่วงชัก (ยื่นสุด)']],p.at,v=>{p.at=v}))}}
  {const k=c.type=='cyl'&&p.rot?INFO_ROT:INFO[c.type];if(k)add('<small style="display:block;margin-top:8px">📘 '+k+'</small>')}
  const b=document.createElement('button');b.className='btn red';b.style.marginTop='10px';b.textContent='ลบชิ้นส่วนนี้';b.onclick=()=>{delSel();refreshProps()};P.appendChild(b)}
 /* ---------- status ---------- */
 function updStatus(){const T=$('tpS');if(!T.classList.contains('on')&&!$('side').classList.contains('open')&&0)return;
  let h='<table class="st"><tr><th>อุปกรณ์</th><th>สถานะ</th></tr>';
  comps.forEach(c=>{if(c.type=='cyl')h+=`<tr><td>${c.props.name}</td><td>${R(c.pos*100)}% ${c.mv?(c.dir>0?'▶ ยื่นออก':'◀ ถอยกลับ'):'■ หยุด'}</td></tr>`;
-  if(c.type=='valve')h+=`<tr><td>${c.props.name} (${c.props.kind})</td><td>${c.props.kind=='5/2'?'ตำแหน่ง '+(c.s?'14':'12'):(c.s?'สั่งงาน':'ปกติ')}</td></tr>`;
+  if(c.type=='valve')h+=`<tr><td>${c.props.name} (${c.props.kind})</td><td>${c.props.kind!='3/2'?'ตำแหน่ง '+(c.s?'14':'12'):(c.s?'สั่งงาน':'ปกติ')}</td></tr>`;
   if(c.type=='motor')h+=`<tr><td>${c.props.name}</td><td>${c.mv?(c.dir>0?'↻ หมุนตามเข็ม':'↺ หมุนทวนเข็ม')+' '+R(c.f*100)+'%':'■ หยุด'}</td></tr>`;
   if(c.type=='tank'||c.type=='filter'||c.type=='wsep')h+=`<tr><td>${c.props.name}</td><td>น้ำ ${R((c.props.water||0)*100)}%${c.props.water>.8?' ⚠ ควรปล่อยทิ้ง':''}</td></tr>`;
   if(c.type=='gauge'){const q=lv(c,'p');h+=`<tr><td>${c.props.name}</td><td>${(q.bar*q.d).toFixed(1)} bar</td></tr>`}});
@@ -908,8 +917,8 @@ function validate(){
    miss('e','1','พอร์ต 1 (ลมเข้า) ยังไม่ได้ต่อ');
    if(g.k==3)miss('w','2','พอร์ต 2 (ช่องใช้งาน) ยังไม่ได้ต่อ');else{miss('w','4','พอร์ต 4 ยังไม่ได้ต่อ');miss('w','2','พอร์ต 2 ยังไม่ได้ต่อ')}
    if(p.L=='pilot')miss('w','zl','ลมสัญญาณด้านซ้ายยังไม่ได้ต่อ – วาล์วจะไม่สลับด้วยลม');
-   if(g.k==5&&p.Rt=='pilot')miss('w','zr','ลมสัญญาณด้านขวายังไม่ได้ต่อ – วาล์วจะไม่สลับด้วยลม');
-   if(p.L=='roller'&&!p.att)add('i',`${nm(c)}: ลูกกลิ้งยังไม่ได้ตั้งให้ชนกับกระบอกสูบ (กดเองได้เท่านั้น)`,[c.id]);
+   if(g.k>=4&&p.Rt=='pilot')miss('w','zr','ลมสัญญาณด้านขวายังไม่ได้ต่อ – วาล์วจะไม่สลับด้วยลม');
+   if((p.L=='roller'||p.L=='roller1')&&!p.att)add('i',`${nm(c)}: ลูกกลิ้งยังไม่ได้ตั้งให้ชนกับกระบอกสูบ (กดเองได้เท่านั้น)`,[c.id]);
    if(hasSup){if(wired(key(c,'1'))&&!P.has(net(c,'1')))add('e',`${nm(c)}: พอร์ต 1 ไม่ได้รับลมอัดจากแหล่งจ่าย`,[c.id],[key(c,'1')]);
     ['zl','zr'].forEach(n=>{if(portsOf(c)[n]&&wired(key(c,n))&&!P.has(net(c,n)))add('w',`${nm(c)}: ลมสัญญาณไม่มีทางมาถึงพอร์ต ${portsOf(c)[n].l}`,[c.id],[key(c,n)])})}}
   if(c.type=='cyl'){const pn=p.dbl?['A','B']:['A'];
@@ -1028,7 +1037,37 @@ const PRE=[
  w:[['sup.out','frl.in'],['frl.out','m.in'],['m.o1','v1.1'],['m.o2','v2.1'],['v1.2','c1.A'],['v2.4','c2.A'],['v2.2','c2.B']],
  obj:'เปรียบเทียบโครงสร้างและการทำงานของกระบอกสูบทางเดียว (สปริงกลับ) กับสองทาง',
  st:['กด S1: ลมดัน A1 ยื่นออก ปล่อยแล้วสปริงดันกลับ','กด S2: A2 ยื่นออกด้วยลมที่พอร์ต A ปล่อยแล้วลมที่พอร์ต B ดันกลับ','เปรียบเทียบจำนวนพอร์ตและจำนวนช่องลมของกระบอกสูบ 2 แบบ'],
- q:['ข้อดีและข้อจำกัดของกระบอกสูบทางเดียวคืออะไร','เมื่อใดควรเลือกใช้กระบอกสูบสองทาง']}];
+ q:['ข้อดีและข้อจำกัดของกระบอกสูบทางเดียวคืออะไร','เมื่อใดควรเลือกใช้กระบอกสูบสองทาง']},
+{t:'12) ใบงาน 5/1 – กระบอกสูบทางเดียว ควบคุมโดยอ้อมด้วยวาล์ว 3/2',
+ c:[['sup','supply',20,380,{name:'0.1'}],['frl','frl',140,378],['t1','tee',290,405],['v2','valve',290,298,{name:'1.2',L:'push'}],['v1','valve',560,200,{name:'1.1',L:'pilot'}],['cyl','cyl',646,40,{dbl:false,name:'A (1.0)'}]],
+ w:[['sup.out','frl.in'],['frl.out','t1.a'],['t1.b','v2.1'],['t1.c','v1.1'],['v2.2','v1.zl'],['v1.2','cyl.A']],
+ obj:'ปฏิบัติงานควบคุมกระบอกสูบทำงานทางเดียวด้วยวาล์วควบคุมทิศทางลมอัด 3/2 โดยอ้อม',
+ st:['กดปุ่ม 1.2 (วาล์ว 3/2 ปุ่มกด/สปริง): ลมสัญญาณไปที่ช่อง Z ของ 1.1 (วาล์ว 3/2 ควบคุมด้วยลมอัด/สปริง) สังเกตเส้นประ','ลมกำลังผ่าน 1.1 เข้ากระบอกสูบ A (1.0) ยื่นออก','ปล่อยปุ่ม 1.2: ลมสัญญาณระบายออกที่ R สปริงดัน 1.1 กลับ กระบอกสูบถอยกลับด้วยสปริง','บันทึกผลลงตาราง: ตำแหน่งการทำงานของวาล์วและลูกสูบเมื่อกดปุ่ม / ปล่อยปุ่ม'],
+ q:['เหตุใดจึงเรียกว่าการควบคุมโดยอ้อม','วาล์ว 1.2 กับ 1.1 ทำหน้าที่ต่างกันอย่างไร','ลมสัญญาณกับลมกำลังต่างกันอย่างไร']},
+{t:'13) ใบงาน 5/2 – กระบอกสูบสองทาง วาล์ว 3/2 ปุ่มล็อก + ลูกกลิ้งทางเดียว + 5/2 ลม',
+ c:[['sup','supply',20,520,{name:'0.1'}],['frl','frl',140,518],['v0','valve',290,430,{name:'0.2',L:'lever'}],['m','manifold',420,540],['v1','valve',380,250,{kind:'5/2',L:'pilot',Rt:'pilot',name:'1.1'}],['v2','valve',60,330,{name:'1.2',L:'plock'}],['v3','valve',640,330,{name:'1.3',L:'roller1',att:'cyl',at:'end'}],['cyl','cyl',350,40,{dbl:true,name:'A (1.0)'}]],
+ w:[['sup.out','frl.in'],['frl.out','v0.1'],['v0.2','m.in'],['m.o1','v2.1'],['m.o2','v1.1'],['m.o3','v3.1'],['v2.2','v1.zl'],['v3.2','v1.zr'],['v1.4','cyl.A'],['v1.2','cyl.B']],
+ obj:'ปฏิบัติงานควบคุมกระบอกสูบสองทางด้วยวาล์ว 3/2 (ปุ่มล็อก, ลูกกลิ้งทางเดียว) และวาล์ว 5/2 ควบคุมด้วยลม',
+ st:['เปิดวาล์วลม 0.2 (คันโยก) ให้ลมเข้าระบบ','กดปุ่ม 1.2 (มีตัวล็อกตำแหน่ง ค้างไว้): ลมสัญญาณเข้า Z ของ 1.1 กระบอกสูบยื่นออก','เมื่อลูกสูบชนลูกกลิ้ง 1.3 (ลูกกลิ้งทางเดียว) ลมสัญญาณเข้า Y ของ 1.1 แต่ 1.2 ยังล็อกอยู่ จึงเกิดสัญญาณขัดแย้ง 5/2 ยังไม่สลับ ให้คลายล็อก 1.2 เพื่อให้กระบอกสูบถอยกลับ','ลองกดล็อก 1.2 ค้างไว้ สังเกตว่ากระบอกสูบเดินหน้า-ถอยหลัง ตามที่กำหนด แล้วสรุปผลลงตาราง'],
+ q:['วาล์ว 3/2 ที่มีตัวล็อกตำแหน่งใช้ทำอะไร','ลูกกลิ้งทางเดียว (ลิ้นลมช่วยกลับ) ต่างจากลูกกลิ้งธรรมดาอย่างไร','ถ้า 1.2 ค้างกดอยู่ และ 1.3 ถูกกด 5/2 จะทำงานอย่างไร (สัญญาณขัดแย้ง)']},
+{t:'14) ใบงาน 5/3 – กระบอกสูบสองทาง ควบคุมด้วยวาล์ว 4/2 (ลม/สปริง)',
+ c:[['sup','supply',20,380,{name:'0.1'}],['frl','frl',140,378],['t1','tee',290,405],['v2','valve',290,298,{name:'1.2',L:'plock'}],['v1','valve',560,200,{kind:'4/2',L:'pilot',Rt:'spring',name:'1.1'}],['cyl','cyl',530,40,{dbl:true,name:'A (1.0)'}]],
+ w:[['sup.out','frl.in'],['frl.out','t1.a'],['t1.b','v2.1'],['t1.c','v1.1'],['v2.2','v1.zl'],['v1.4','cyl.A'],['v1.2','cyl.B']],
+ obj:'ปฏิบัติงานควบคุมกระบอกสูบสองทางด้วยวาล์วควบคุมทิศทางลมอัด 4/2',
+ st:['กดปุ่ม 1.2 (มีตัวล็อก): ลมสัญญาณเข้า Z ของวาล์ว 4/2 (1.1) ลมกำลังผ่านพอร์ต 4 เข้า A กระบอกสูบยื่นออก','คลายล็อก 1.2: ลมสัญญาณระบายออก สปริงดัน 1.1 กลับ ลมเข้าพอร์ต B กระบอกสูบถอยกลับ','สังเกตว่า 4/2 มีช่องระบายลม R เพียงช่องเดียว','บันทึกผลของ 1.1 และ 1.2 ลงตาราง'],
+ q:['วาล์ว 4/2 ต่างจาก 5/2 อย่างไร','ทำไม 4/2 จึงมีช่องระบายลมแค่ช่องเดียว']},
+{t:'15) ใบงาน 5/4 – กระบอกสูบสองทาง วาล์ว 4/2 ลม 2 ด้าน (จำสถานะ)',
+ c:[['sup','supply',20,430,{name:'0.1'}],['frl','frl',140,428],['m','manifold',300,430],['v1','valve',380,230,{kind:'4/2',L:'pilot',Rt:'pilot',name:'1.1'}],['v2','valve',60,300,{name:'1.2',L:'push'}],['v3','valve',640,300,{name:'1.3',L:'push'}],['cyl','cyl',350,40,{dbl:true,name:'A (1.0)'}]],
+ w:[['sup.out','frl.in'],['frl.out','m.in'],['m.o1','v2.1'],['m.o2','v1.1'],['m.o3','v3.1'],['v2.2','v1.zl'],['v3.2','v1.zr'],['v1.4','cyl.A'],['v1.2','cyl.B']],
+ obj:'ปฏิบัติงานควบคุมกระบอกสูบสองทางด้วยวาล์ว 4/2 ที่ควบคุมด้วยลมทั้งสองด้าน',
+ st:['กดปุ่ม 1.2 แล้วปล่อย: ลมสัญญาณเข้า Z วาล์ว 4/2 สลับตำแหน่ง กระบอกสูบยื่นออก','ปล่อยปุ่มแล้ว วาล์ว 4/2 ยังคงตำแหน่งเดิม (จำสถานะ) กระบอกสูบยังคงยื่นอยู่','กดปุ่ม 1.3 แล้วปล่อย: ลมสัญญาณเข้า Y วาล์วสลับกลับ กระบอกสูบถอยกลับ','บันทึกผลของวาล์ว 1.1, 1.2, 1.3 ลงตาราง'],
+ q:['เหตุใดวาล์ว 4/2 สองทาง จึงจำตำแหน่งได้','ข้อดีของการใช้ปุ่มกดสั่งทางสั้นๆ (พัลส์) คืออะไร']},
+{t:'16) ใบงาน 5/5 – กระบอกสูบสองทาง วาล์ว 5/2 ลม 2 ด้าน (จำสถานะ)',
+ c:[['sup','supply',20,430,{name:'0.1'}],['frl','frl',140,428],['m','manifold',300,430],['v1','valve',380,230,{kind:'5/2',L:'pilot',Rt:'pilot',name:'1.1'}],['v2','valve',60,300,{name:'1.2',L:'push'}],['v3','valve',640,300,{name:'1.3',L:'push'}],['cyl','cyl',350,40,{dbl:true,name:'A (1.0)'}]],
+ w:[['sup.out','frl.in'],['frl.out','m.in'],['m.o1','v2.1'],['m.o2','v1.1'],['m.o3','v3.1'],['v2.2','v1.zl'],['v3.2','v1.zr'],['v1.4','cyl.A'],['v1.2','cyl.B']],
+ obj:'ปฏิบัติงานควบคุมกระบอกสูบสองทางด้วยวาล์ว 5/2 ที่ควบคุมด้วยลมและกลับด้วยลม',
+ st:['กดปุ่ม 1.2 แล้วปล่อย: ลมสัญญาณเข้า Z (14) วาล์ว 5/2 สลับ กระบอกสูบยื่นออกและค้างอยู่','กดปุ่ม 1.3 แล้วปล่อย: ลมสัญญาณเข้า Y (12) วาล์วสลับกลับ กระบอกสูบถอยกลับและค้างอยู่','สังเกตช่องระบาย R (5) และ S (3) ของ 5/2','บันทึกผลของวาล์ว 1.1, 1.2, 1.3 ลงตาราง'],
+ q:['วาล์ว 5/2 ลม 2 ด้านเรียกว่าวาล์วอะไร เพราะเหตุใด','ถ้ากดปุ่ม 1.2 และ 1.3 พร้อมกันจะเกิดอะไรขึ้น']}];
 const GEN='<b>Pneumatic Circuit by Suriya PTC</b><p>เลือกตัวอย่างวงจรจากเมนูด้านบนเพื่อดูใบงาน หรือสร้างวงจรเองจากชิ้นส่วนด้านซ้าย</p><h4>รหัสพอร์ตตามมาตรฐาน ISO</h4><ul><li>1 = ลมเข้า (P)</li><li>2, 4 = ช่องใช้งาน (A, B)</li><li>3, 5 = ช่องระบายลม (R, S)</li><li>12, 14 = พอร์ตลมสัญญาณ (1→2, 1→4)</li></ul>';
 let curPre=-1;
 function loadPre(i){
